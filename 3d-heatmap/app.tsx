@@ -1,13 +1,12 @@
-// App.tsx
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map } from 'react-map-gl/maplibre';
 import { AmbientLight, PointLight, LightingEffect } from '@deck.gl/core';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 import DeckGL from '@deck.gl/react';
-import Slider from '@mui/material/Slider';
 import { CSVLoader } from '@loaders.gl/csv';
 import { load } from '@loaders.gl/core';
+import ControlPanel from './ControlPanel'; // Import the ControlPanel component
 
 import type { Color, PickingInfo, MapViewState } from '@deck.gl/core';
 
@@ -19,7 +18,7 @@ const pointLight2 = new PointLight({ color: [255, 255, 255], intensity: 0.8, pos
 const lightingEffect = new LightingEffect({ ambientLight, pointLight1, pointLight2 });
 
 const INITIAL_VIEW_STATE: MapViewState = {
-  longitude: 31.1656, // Centered over Ukraine
+  longitude: 31.1656,
   latitude: 48.3794,
   zoom: 5,
   minZoom: 2,
@@ -53,12 +52,12 @@ type DataPoint = [longitude: number, latitude: number, eventCount: number];
 export default function App() {
   const [data, setData] = useState<DataPoint[]>([]);
   const [radius, setRadius] = useState(10000);
-  const [upperPercentile, setUpperPercentile] = useState(100);
+  const [upperPercentile, setUpperPercentile] = useState<number[]>([80, 100]); // State for percentile range
   const [coverage, setCoverage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // Replace this with the raw GitHub link to your CSV file
-  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv'
+  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -95,69 +94,39 @@ export default function App() {
       colorAggregation: 'SUM',
       pickable: true,
       radius,
-      upperPercentile,
+      upperPercentile: upperPercentile[1], // Use upper limit
+      lowerPercentile: upperPercentile[0], // Use lower limit
       material: {
         ambient: 0.64,
         diffuse: 0.6,
         shininess: 32,
         specularColor: [51, 51, 51],
       },
-      transitions: {
-        elevationScale: 3000,
-      },
+      transitions: { elevationScale: 3000 },
     }),
   ];
 
   return (
     <div>
       {loading ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: 'white',
-            fontSize: '24px',
-          }}
-        >
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'white', fontSize: '24px' }}>
           Loading...
         </div>
       ) : (
-        <DeckGL
-          layers={layers}
-          effects={[lightingEffect]}
-          initialViewState={INITIAL_VIEW_STATE}
-          controller={true}
-          getTooltip={getTooltip}
-        >
+        <DeckGL layers={layers} effects={[lightingEffect]} initialViewState={INITIAL_VIEW_STATE} controller={true} getTooltip={getTooltip}>
           <Map reuseMaps mapStyle={MAP_STYLE} />
         </DeckGL>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          top: 20,
-          left: 20,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          padding: '10px',
-          borderRadius: '8px',
-          maxWidth: '300px',
-        }}
-      >
-        <div>
-          <label>Radius: {radius} meters</label>
-          <Slider value={radius} min={100} max={20000} step={100} onChange={(e, value) => setRadius(value as number)} />
-        </div>
-        <div style={{ marginTop: '20px' }}>
-          <label>Upper Percentile: {upperPercentile}%</label>
-          <Slider value={upperPercentile} min={80} max={100} step={0.1} onChange={(e, value) => setUpperPercentile(value as number)} />
-        </div>
-        <div style={{ marginTop: '20px' }}>
-          <label>Coverage: {coverage}</label>
-          <Slider value={coverage} min={0} max={1} step={0.01} onChange={(e, value) => setCoverage(value as number)} />
-        </div>
-      </div>
+      <ControlPanel
+        radius={radius}
+        setRadius={setRadius}
+        upperPercentile={upperPercentile}
+        setUpperPercentile={setUpperPercentile}
+        coverage={coverage}
+        setCoverage={setCoverage}
+        statistics={{ min: 0, max: 0, total: 0, count: 0 }} // Replace with real stats
+        dateRange={{ startDate: '2022-01-01', endDate: '2022-12-31' }} // Example date range
+      />
     </div>
   );
 }
