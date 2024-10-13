@@ -1,20 +1,29 @@
+// App.tsx
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map } from 'react-map-gl/maplibre';
 import { AmbientLight, PointLight, LightingEffect } from '@deck.gl/core';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 import DeckGL from '@deck.gl/react';
+import { BrushingExtension } from '@deck.gl/extensions';
 import { CSVLoader } from '@loaders.gl/csv';
 import { load } from '@loaders.gl/core';
-import ControlPanel from './ControlPanel'; // Import the ControlPanel component
+import ControlPanel from './ControlPanel';
 
 import type { Color, PickingInfo, MapViewState } from '@deck.gl/core';
 
 // Lighting setup
 const ambientLight = new AmbientLight({ color: [255, 255, 255], intensity: 1.0 });
-const pointLight1 = new PointLight({ color: [255, 255, 255], intensity: 0.8, position: [-0.144528, 49.739968, 80000] });
-const pointLight2 = new PointLight({ color: [255, 255, 255], intensity: 0.8, position: [-3.807751, 54.104682, 8000] });
-
+const pointLight1 = new PointLight({
+  color: [255, 255, 255],
+  intensity: 0.8,
+  position: [-0.144528, 49.739968, 80000],
+});
+const pointLight2 = new PointLight({
+  color: [255, 255, 255],
+  intensity: 0.8,
+  position: [-3.807751, 54.104682, 8000],
+});
 const lightingEffect = new LightingEffect({ ambientLight, pointLight1, pointLight2 });
 
 const INITIAL_VIEW_STATE: MapViewState = {
@@ -52,11 +61,14 @@ type DataPoint = [longitude: number, latitude: number, eventCount: number];
 export default function App() {
   const [data, setData] = useState<DataPoint[]>([]);
   const [radius, setRadius] = useState(10000);
-  const [upperPercentile, setUpperPercentile] = useState<number[]>([80, 100]); // State for percentile range
+  const [upperPercentile, setUpperPercentile] = useState([80, 100]);
   const [coverage, setCoverage] = useState(1);
+  const [brushingRadius, setBrushingRadius] = useState(5000);
+  const [brushingEnabled, setBrushingEnabled] = useState(false); // Brushing mode state
   const [loading, setLoading] = useState(true);
 
-  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
+  const CSV_URL =
+    'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
 
   useEffect(() => {
     async function fetchData() {
@@ -74,9 +86,10 @@ export default function App() {
         setLoading(false);
       }
     }
-
     fetchData();
   }, [CSV_URL]);
+
+  const brushingExtension = new BrushingExtension();
 
   const layers = [
     new HexagonLayer<DataPoint>({
@@ -94,26 +107,46 @@ export default function App() {
       colorAggregation: 'SUM',
       pickable: true,
       radius,
-      upperPercentile: upperPercentile[1], // Use upper limit
-      lowerPercentile: upperPercentile[0], // Use lower limit
+      upperPercentile: upperPercentile[1],
+      extensions: [brushingExtension],
+      brushingRadius,
+      brushingEnabled,
+      brushingTarget: 'source',
       material: {
         ambient: 0.64,
         diffuse: 0.6,
         shininess: 32,
         specularColor: [51, 51, 51],
       },
-      transitions: { elevationScale: 3000 },
+      transitions: {
+        elevationScale: 3000,
+      },
     }),
   ];
 
   return (
     <div>
       {loading ? (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'white', fontSize: '24px' }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'white',
+            fontSize: '24px',
+          }}
+        >
           Loading...
         </div>
       ) : (
-        <DeckGL layers={layers} effects={[lightingEffect]} initialViewState={INITIAL_VIEW_STATE} controller={true} getTooltip={getTooltip}>
+        <DeckGL
+          layers={layers}
+          effects={[lightingEffect]}
+          initialViewState={INITIAL_VIEW_STATE}
+          controller={true}
+          getTooltip={getTooltip}
+        >
           <Map reuseMaps mapStyle={MAP_STYLE} />
         </DeckGL>
       )}
@@ -124,8 +157,12 @@ export default function App() {
         setUpperPercentile={setUpperPercentile}
         coverage={coverage}
         setCoverage={setCoverage}
-        statistics={{ min: 0, max: 0, total: 0, count: 0 }} // Replace with real stats
-        dateRange={{ startDate: '2022-01-01', endDate: '2022-12-31' }} // Example date range
+        brushingRadius={brushingRadius}
+        setBrushingRadius={setBrushingRadius}
+        brushingEnabled={brushingEnabled}
+        setBrushingEnabled={setBrushingEnabled}
+        statistics={{ min: 0, max: 100, total: 1000, count: data.length }}
+        dateRange={{ startDate: '2022-01-01', endDate: '2024-12-31' }}
       />
     </div>
   );
