@@ -1,43 +1,28 @@
-import React, { useState } from 'react';
+// App.tsx
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map } from 'react-map-gl/maplibre';
 import { AmbientLight, PointLight, LightingEffect } from '@deck.gl/core';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 import DeckGL from '@deck.gl/react';
+import Slider from '@mui/material/Slider';
 import { CSVLoader } from '@loaders.gl/csv';
 import { load } from '@loaders.gl/core';
-import Slider from '@mui/material/Slider';
 
 import type { Color, PickingInfo, MapViewState } from '@deck.gl/core';
 
-// Source data CSV
-const DATA_URL =
-  'https://raw.githubusercontent.com/visgl/deck.gl-data/master/examples/3d-heatmap/heatmap-data.csv';
-
-const ambientLight = new AmbientLight({
-  color: [255, 255, 255],
-  intensity: 1.0,
-});
-
-const pointLight1 = new PointLight({
-  color: [255, 255, 255],
-  intensity: 0.8,
-  position: [-0.144528, 49.739968, 80000],
-});
-
-const pointLight2 = new PointLight({
-  color: [255, 255, 255],
-  intensity: 0.8,
-  position: [-3.807751, 54.104682, 8000],
-});
+// Lighting setup
+const ambientLight = new AmbientLight({ color: [255, 255, 255], intensity: 1.0 });
+const pointLight1 = new PointLight({ color: [255, 255, 255], intensity: 0.8, position: [-0.144528, 49.739968, 80000] });
+const pointLight2 = new PointLight({ color: [255, 255, 255], intensity: 0.8, position: [-3.807751, 54.104682, 8000] });
 
 const lightingEffect = new LightingEffect({ ambientLight, pointLight1, pointLight2 });
 
 const INITIAL_VIEW_STATE: MapViewState = {
-  longitude: -1.415727,
-  latitude: 52.232395,
-  zoom: 6.6,
-  minZoom: 5,
+  longitude: 31.1656, // Centered over Ukraine
+  latitude: 48.3794,
+  zoom: 5,
+  minZoom: 2,
   maxZoom: 15,
   pitch: 40.5,
   bearing: -27,
@@ -55,32 +40,45 @@ export const colorRange: Color[] = [
 ];
 
 function getTooltip({ object }: PickingInfo) {
-  if (!object) {
-    return null;
-  }
+  if (!object) return null;
   const lat = object.position[1];
   const lng = object.position[0];
-  const count = object.points.length;
+  const count = object.elevationValue;
 
-  return `\
-latitude: ${Number.isFinite(lat) ? lat.toFixed(6) : ''}
-longitude: ${Number.isFinite(lng) ? lng.toFixed(6) : ''}
-${count} Accidents`;
+  return `latitude: ${lat.toFixed(6)}\nlongitude: ${lng.toFixed(6)}\nEvent Count: ${count}`;
 }
 
-type DataPoint = [longitude: number, latitude: number];
+type DataPoint = [longitude: number, latitude: number, eventCount: number];
 
-export default function App({
-  data = null,
-  mapStyle = MAP_STYLE,
-}: {
-  data?: DataPoint[] | null;
-  mapStyle?: string;
-}) {
-  // State variables for sliders
-  const [radius, setRadius] = useState(1000);
+export default function App() {
+  const [data, setData] = useState<DataPoint[]>([]);
+  const [radius, setRadius] = useState(10000);
   const [upperPercentile, setUpperPercentile] = useState(100);
   const [coverage, setCoverage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  // Replace this with the raw GitHub link to your CSV file
+  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv?token=GHSAT0AAAAAACXQNX5RGFNOBE5B2GEL42UOZYLCNCQ';
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const result = await load(CSV_URL, CSVLoader);
+        const points: DataPoint[] = result.data.map((row: any) => [
+          parseFloat(row.longitude),
+          parseFloat(row.latitude),
+          parseInt(row.fatalities, 10),
+        ]);
+        setData(points);
+      } catch (error) {
+        console.error('Error loading CSV:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [CSV_URL]);
 
   const layers = [
     new HexagonLayer<DataPoint>({
@@ -88,10 +86,14 @@ export default function App({
       colorRange,
       coverage,
       data,
-      elevationRange: [0, 3000],
-      elevationScale: data && data.length ? 50 : 0,
+      elevationRange: [0, 5000],
+      elevationScale: data.length ? 50 : 0,
       extruded: true,
-      getPosition: (d) => d,
+      getPosition: (d) => [d[0], d[1]],
+      getElevationWeight: (d) => d[2],
+      elevationAggregation: 'SUM',
+      getColorWeight: (d) => d[2],
+      colorAggregation: 'SUM',
       pickable: true,
       radius,
       upperPercentile,
@@ -109,16 +111,30 @@ export default function App({
 
   return (
     <div>
-      <DeckGL
-        layers={layers}
-        effects={[lightingEffect]}
-        initialViewState={INITIAL_VIEW_STATE}
-        controller={true}
-        getTooltip={getTooltip}
-      >
-        <Map reuseMaps mapStyle={mapStyle} />
-      </DeckGL>
-      {/* Sliders */}
+      {loading ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'white',
+            fontSize: '24px',
+          }}
+        >
+          Loading...
+        </div>
+      ) : (
+        <DeckGL
+          layers={layers}
+          effects={[lightingEffect]}
+          initialViewState={INITIAL_VIEW_STATE}
+          controller={true}
+          getTooltip={getTooltip}
+        >
+          <Map reuseMaps mapStyle={MAP_STYLE} />
+        </DeckGL>
+      )}
       <div
         style={{
           position: 'absolute',
@@ -132,33 +148,15 @@ export default function App({
       >
         <div>
           <label>Radius: {radius} meters</label>
-          <Slider
-            value={radius}
-            min={500}
-            max={5000}
-            step={100}
-            onChange={(e, value) => setRadius(value as number)}
-          />
+          <Slider value={radius} min={1000} max={20000} step={1000} onChange={(e, value) => setRadius(value as number)} />
         </div>
         <div style={{ marginTop: '20px' }}>
           <label>Upper Percentile: {upperPercentile}%</label>
-          <Slider
-            value={upperPercentile}
-            min={80}
-            max={100}
-            step={1}
-            onChange={(e, value) => setUpperPercentile(value as number)}
-          />
+          <Slider value={upperPercentile} min={80} max={100} step={1} onChange={(e, value) => setUpperPercentile(value as number)} />
         </div>
         <div style={{ marginTop: '20px' }}>
           <label>Coverage: {coverage}</label>
-          <Slider
-            value={coverage}
-            min={0}
-            max={1}
-            step={0.1}
-            onChange={(e, value) => setCoverage(value as number)}
-          />
+          <Slider value={coverage} min={0} max={1} step={0.1} onChange={(e, value) => setCoverage(value as number)} />
         </div>
       </div>
     </div>
@@ -167,9 +165,5 @@ export default function App({
 
 export async function renderToDOM(container: HTMLDivElement) {
   const root = createRoot(container);
-
-  // Load data and render the App component with data
-  const data = (await load(DATA_URL, CSVLoader)).data;
-  const points: DataPoint[] = data.map((d: any) => [Number(d.lng), Number(d.lat)]);
-  root.render(<App data={points} />);
+  root.render(<App />);
 }

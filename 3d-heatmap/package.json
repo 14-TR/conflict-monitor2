@@ -9,6 +9,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.29.0",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@loaders.gl/csv": "^4.2.0",
@@ -19,6 +20,7 @@
     "deck.gl": "^9.0.0",
     "dotenv": "^16.4.5",
     "duckdb": "^1.1.1",
+    "json2csv": "^6.0.0-alpha.2",
     "maplibre-gl": "^3.0.0",
     "node-fetch": "^3.3.2",
     "react": "^18.0.0",
