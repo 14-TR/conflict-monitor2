@@ -87,7 +87,7 @@ export default function App() {
       coverage,
       data,
       elevationRange: [0, 5000],
-      elevationScale: data.length ? 100 : 0,
+      elevationScale: data.length ? 50 : 0,
       extruded: true,
       getPosition: (d) => [d[0], d[1]],
       getElevationWeight: (d) => d[2],
