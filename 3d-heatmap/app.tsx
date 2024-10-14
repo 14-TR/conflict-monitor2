@@ -5,9 +5,10 @@ import { Map } from 'react-map-gl/maplibre';
 import { AmbientLight, PointLight, LightingEffect } from '@deck.gl/core';
 import { HexagonLayer } from '@deck.gl/aggregation-layers';
 import DeckGL from '@deck.gl/react';
-import Slider from '@mui/material/Slider';
 import { CSVLoader } from '@loaders.gl/csv';
 import { load } from '@loaders.gl/core';
+import ControlPanel from './ControlPanel';
+import Switch from '@mui/material/Switch';
 
 import type { Color, PickingInfo, MapViewState } from '@deck.gl/core';
 
@@ -53,12 +54,15 @@ type DataPoint = [longitude: number, latitude: number, eventCount: number];
 export default function App() {
   const [data, setData] = useState<DataPoint[]>([]);
   const [radius, setRadius] = useState(10000);
-  const [upperPercentile, setUpperPercentile] = useState(100);
+  const [upperPercentile, setUpperPercentile] = useState<number[]>([0, 100]);
   const [coverage, setCoverage] = useState(1);
+  const [brushingEnabled, setBrushingEnabled] = useState(false);
+  const [brushingRadius, setBrushingRadius] = useState(5000);
   const [loading, setLoading] = useState(true);
+  const [showHexControls, setShowHexControls] = useState(false);
+  const [statVisibility, setStatVisibility] = useState(true);
 
-  // Replace this with the raw GitHub link to your CSV file
-  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv?token=GHSAT0AAAAAACXQNX5RGFNOBE5B2GEL42UOZYLCNCQ';
+  const CSV_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
 
   useEffect(() => {
     async function fetchData() {
@@ -67,7 +71,7 @@ export default function App() {
         const points: DataPoint[] = result.data.map((row: any) => [
           parseFloat(row.longitude),
           parseFloat(row.latitude),
-          parseInt(row.fatalities, 10),
+          parseInt(row.fatalities, 10) || 0,
         ]);
         setData(points);
       } catch (error) {
@@ -80,34 +84,27 @@ export default function App() {
     fetchData();
   }, [CSV_URL]);
 
-  const layers = [
+  const layers = data.length > 0 ? [
     new HexagonLayer<DataPoint>({
       id: 'heatmap',
+      data,
+      radius,
       colorRange,
       coverage,
-      data,
-      elevationRange: [0, 5000],
-      elevationScale: data.length ? 50 : 0,
-      extruded: true,
+      upperPercentile: upperPercentile[1],
       getPosition: (d) => [d[0], d[1]],
       getElevationWeight: (d) => d[2],
       elevationAggregation: 'SUM',
-      getColorWeight: (d) => d[2],
-      colorAggregation: 'SUM',
+      extruded: true,
+      elevationScale: 50,
       pickable: true,
-      radius,
-      upperPercentile,
-      material: {
-        ambient: 0.64,
-        diffuse: 0.6,
-        shininess: 32,
-        specularColor: [51, 51, 51],
-      },
+      brushingRadius,
+      brushingEnabled,
       transitions: {
         elevationScale: 3000,
       },
     }),
-  ];
+  ] : [];
 
   return (
     <div>
@@ -135,29 +132,36 @@ export default function App() {
           <Map reuseMaps mapStyle={MAP_STYLE} />
         </DeckGL>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          top: 20,
-          left: 20,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
-          padding: '10px',
-          borderRadius: '8px',
-          maxWidth: '300px',
+
+      <ControlPanel
+        radius={radius}
+        setRadius={setRadius}
+        upperPercentile={upperPercentile}
+        setUpperPercentile={setUpperPercentile}
+        coverage={coverage}
+        setCoverage={setCoverage}
+        brushingEnabled={brushingEnabled}
+        setBrushingEnabled={setBrushingEnabled}
+        brushingRadius={brushingRadius}
+        setBrushingRadius={setBrushingRadius}
+        setStatVisibility={setStatVisibility}
+        statistics={{
+          min: Math.min(...data.map((d) => d[2])),
+          max: Math.max(...data.map((d) => d[2])),
+          total: data.reduce((acc, d) => acc + d[2], 0),
+          count: data.length,
         }}
-      >
-        <div>
-          <label>Radius: {radius} meters</label>
-          <Slider value={radius} min={1000} max={20000} step={1000} onChange={(e, value) => setRadius(value as number)} />
-        </div>
-        <div style={{ marginTop: '20px' }}>
-          <label>Upper Percentile: {upperPercentile}%</label>
-          <Slider value={upperPercentile} min={80} max={100} step={1} onChange={(e, value) => setUpperPercentile(value as number)} />
-        </div>
-        <div style={{ marginTop: '20px' }}>
-          <label>Coverage: {coverage}</label>
-          <Slider value={coverage} min={0} max={1} step={0.1} onChange={(e, value) => setCoverage(value as number)} />
-        </div>
+        dateRange={{ startDate: '2022-01-01', endDate: '2024-12-31' }}
+        showHexControls={showHexControls}
+        setShowHexControls={setShowHexControls}
+      />
+
+      <div style={{ position: 'absolute', top: 0, right: 0, padding: '10px' }}>
+        <label>Show Statistics</label>
+        <Switch
+          checked={statVisibility}
+          onChange={(e) => setStatVisibility(e.target.checked)}
+        />
       </div>
     </div>
   );
