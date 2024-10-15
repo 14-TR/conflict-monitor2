@@ -154,11 +154,17 @@ export default function App() {
       coverage,
       elevationScale: data.length ? 50 : 0,
       extruded: true,
-      extensions: [new BrushingExtension()],
+      extensions: [
+        new BrushingExtension({
+          radius: brushingRadius, // Pass the brushingRadius here
+        }),
+      ],
       brushingEnabled,
-      onClick: handleClick, // Use toggle click handler
+      brushingRadius, // Ensure this is updated in the layer
+      onClick: handleClick,
     }),
   ];
+  
 
   return (
     <div>

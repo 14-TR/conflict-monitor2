@@ -117,6 +117,7 @@ export default function ControlPanel({
               max={100000}
               step={1000}
               onChange={(e, value) => setBrushingRadius(value as number)}
+              valueLabelDisplay='auto'
             />
           </div>
         )}
