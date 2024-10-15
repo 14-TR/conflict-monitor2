@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map } from 'react-map-gl/maplibre';
 import DeckGL from '@deck.gl/react';
@@ -22,8 +22,11 @@ const INITIAL_VIEW_STATE = {
 
 export default function App() {
   const [data, setData] = useState([]);
-  const [selectedPoints, setSelectedPoints] = useState([]); // Track selected points
-  const [hoverInfo, setHoverInfo] = useState(null); 
+  const [hoverInfo, setHoverInfo] = useState(null);
+  const [statistics, setStatistics] = useState({}); // Store aggregated statistics
+  const selectedPointsRef = useRef({}); // Store selected points
+  const deckRef = useRef(null); // Reference to the DeckGL instance
+
   const [radius, setRadius] = useState(1000);
   const [upperPercentile, setUpperPercentile] = useState([0, 100]);
   const [coverage, setCoverage] = useState(1);
@@ -36,14 +39,15 @@ export default function App() {
     async function fetchData() {
       try {
         const result = await load(DATA_URL, CSVLoader);
-        console.log('CSV Data:', result.data);
-
         const parsedData = result?.data || [];
         setData(
-          parsedData.map((row) => [
-            parseFloat(row.longitude),
-            parseFloat(row.latitude),
-          ])
+          parsedData.map((row) => ({
+            id: row.event_id_cnty,
+            longitude: parseFloat(row.longitude),
+            latitude: parseFloat(row.latitude),
+            event_date: new Date(row.event_date),
+            fatalities: parseInt(row.fatalities, 10) || 0,
+          }))
         );
       } catch (error) {
         console.error('Error loading CSV:', error);
@@ -52,63 +56,114 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Compute statistics dynamically
-  const statistics = useMemo(() => {
-    if (!selectedPoints.length) return { min: 0, max: 0, total: 0, count: 0 };
+  // Helper function to update statistics
+  const calculateStatistics = () => {
+    const points = Object.values(selectedPointsRef.current);
+    if (points.length === 0) {
+      setStatistics({
+        battles: 0,
+        totalFatalities: 0,
+        avgFatalities: '0',
+        maxFatalities: 0,
+        dateRange: { startDate: 'N/A', endDate: 'N/A' },
+      });
+      return;
+    }
 
-    const counts = selectedPoints.map((hex) => hex.points.length);
-    const total = counts.reduce((acc, val) => acc + val, 0);
+    const totalBattles = points.length;
+    const totalFatalities = points.reduce((sum, p) => sum + p.fatalities, 0);
+    const avgFatalities = totalFatalities / totalBattles;
+    const maxFatalities = Math.max(...points.map((p) => p.fatalities));
 
-    return {
-      min: Math.min(...counts),
-      max: Math.max(...counts),
-      total,
-      count: selectedPoints.length,
+    const dates = points.map((p) => p.event_date);
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    const dateRange = {
+      startDate: minDate.toLocaleDateString(),
+      endDate: maxDate.toLocaleDateString(),
     };
-  }, [selectedPoints]);
+
+    setStatistics({
+      battles: totalBattles,
+      totalFatalities,
+      avgFatalities: avgFatalities.toFixed(2),
+      maxFatalities,
+      dateRange,
+    });
+  };
+
+  // Function to handle single point selection
+  const handleSingleClick = (info) => {
+    // Reset selected points
+    selectedPointsRef.current = {};
+
+    if (info.object) {
+      console.log('Single Hexagon Points:', info.object.points);
+      info.object.points.forEach((point) => {
+        selectedPointsRef.current[point.source.id] = point.source;
+      });
+      calculateStatistics(); // Update statistics after single click
+    }
+  };
+
+  // Function to handle multiple points selection (brush)
+  const handleMultiClick = async (x, y) => {
+    // Reset selected points
+    selectedPointsRef.current = {};
+
+    if (deckRef.current) {
+      const results = await deckRef.current.pickMultipleObjects({
+        x,
+        y,
+        radius: brushingRadius,
+      });
+
+      results.forEach((result) => {
+        if (result.object) {
+          console.log('Brushed Points:', result.object.points);
+          result.object.points.forEach((point) => {
+            selectedPointsRef.current[point.source.id] = point.source;
+          });
+        }
+      });
+
+      calculateStatistics(); // Update statistics after multi-click selection
+    }
+  };
+
+  // Toggle between single and multi-point selection
+  const handleClick = (info) => {
+    if (brushingEnabled) {
+      handleMultiClick(info.x, info.y); // Use multi-point selection
+    } else {
+      handleSingleClick(info); // Use single-point selection
+    }
+  };
 
   const layers = [
-    showHexControls &&
-      new HexagonLayer({
-        id: 'heatmap',
-        data,
-        pickable: true,
-        getPosition: (d) => [d[0], d[1]],
-        getElevationWeight: () => 1,
-        elevationAggregation: 'SUM',
-        colorAggregation: 'SUM',
-        radius,
-        upperPercentile: upperPercentile[1],
-        coverage,
-        elevationScale: data.length ? 50 : 0,
-        extruded: true,
-        extensions: [new BrushingExtension()],
-        brushingRadius: brushingEnabled ? brushingRadius : 0,
-        brushingEnabled,
-
-        // Update selected points on hover
-        onHover: (info) => {
-          if (info.object) {
-            setHoverInfo(info);
-            setSelectedPoints([info.object]); // Update selected points
-          } else {
-            setHoverInfo(null);
-          }
-        },
-
-        // Update selected points on click
-        onClick: (info) => {
-          if (info.object) {
-            setSelectedPoints([info.object]); // Track the clicked hexagon
-            alert(`Hexagon clicked with ${info.object.points.length} events.`);
-          }
-        },
-      }),
-  ].filter(Boolean);
+    new HexagonLayer({
+      id: 'heatmap',
+      data,
+      pickable: true,
+      getPosition: (d) => [d.longitude, d.latitude],
+      getElevationWeight: () => 1,
+      elevationAggregation: 'SUM',
+      colorAggregation: 'SUM',
+      radius,
+      upperPercentile: upperPercentile[1],
+      coverage,
+      elevationScale: data.length ? 50 : 0,
+      extruded: true,
+      extensions: [new BrushingExtension()],
+      brushingEnabled,
+      onClick: handleClick, // Use toggle click handler
+    }),
+  ];
 
   return (
     <div>
       <DeckGL
+        ref={deckRef}
         layers={layers}
         initialViewState={INITIAL_VIEW_STATE}
         controller={true}
@@ -135,10 +190,8 @@ export default function App() {
         statVisibility={statVisibility}
         setStatVisibility={setStatVisibility}
         statistics={statistics}
-        dateRange={{ startDate: '2022-01-01', endDate: '2024-12-31' }}
       />
 
-      {/* Display hover tooltip */}
       {hoverInfo && hoverInfo.object && (
         <div
           style={{
