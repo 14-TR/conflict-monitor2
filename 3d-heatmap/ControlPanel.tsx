@@ -17,8 +17,13 @@ interface ControlPanelProps {
   setShowHexControls: (value: boolean) => void;
   statVisibility: boolean;
   setStatVisibility: (value: boolean) => void;
-  statistics: { min: number; max: number; total: number; count: number };
-  dateRange: { startDate: string; endDate: string };
+  statistics: { 
+    battles: number; 
+    totalFatalities: number; 
+    avgFatalities: string; 
+    maxFatalities: number; 
+    dateRange: { startDate: string; endDate: string } 
+  };
 }
 
 export default function ControlPanel({
@@ -37,7 +42,6 @@ export default function ControlPanel({
   statVisibility,
   setStatVisibility,
   statistics,
-  dateRange,
 }: ControlPanelProps) {
   return (
     <div
@@ -54,17 +58,28 @@ export default function ControlPanel({
       {/* Toggle Hex Control Visibility */}
       <div style={{ marginBottom: '10px' }}>
         <label>Show Hex Controls</label>
-        <Switch checked={showHexControls} onChange={(e) => setShowHexControls(e.target.checked)} />
+        <Switch
+          checked={showHexControls}
+          onChange={(e) => setShowHexControls(e.target.checked)}
+        />
       </div>
 
       {showHexControls && (
         <>
           <div style={{ marginTop: '20px' }}>
             <label>Radius: {radius} meters</label>
-            <Slider value={radius} min={100} max={20000} step={100} onChange={(e, value) => setRadius(value as number)} />
+            <Slider
+              value={radius}
+              min={100}
+              max={20000}
+              step={100}
+              onChange={(e, value) => setRadius(value as number)}
+            />
           </div>
           <div style={{ marginTop: '20px' }}>
-            <label>Percentile Range: {upperPercentile[0]}% - {upperPercentile[1]}%</label>
+            <label>
+              Percentile Range: {upperPercentile[0]}% - {upperPercentile[1]}%
+            </label>
             <Slider
               value={upperPercentile}
               min={0}
@@ -76,7 +91,13 @@ export default function ControlPanel({
           </div>
           <div style={{ marginTop: '20px' }}>
             <label>Coverage: {coverage}</label>
-            <Slider value={coverage} min={0} max={1} step={0.01} onChange={(e, value) => setCoverage(value as number)} />
+            <Slider
+              value={coverage}
+              min={0}
+              max={1}
+              step={0.01}
+              onChange={(e, value) => setCoverage(value as number)}
+            />
           </div>
         </>
       )}
@@ -84,7 +105,10 @@ export default function ControlPanel({
       {/* Brushing Control */}
       <div style={{ marginTop: '20px' }}>
         <label>Enable Brushing</label>
-        <Switch checked={brushingEnabled} onChange={(e) => setBrushingEnabled(e.target.checked)} />
+        <Switch
+          checked={brushingEnabled}
+          onChange={(e) => setBrushingEnabled(e.target.checked)}
+        />
         {brushingEnabled && (
           <div style={{ marginTop: '10px' }}>
             <label>Brushing Radius: {brushingRadius} meters</label>
@@ -102,20 +126,24 @@ export default function ControlPanel({
       {/* Toggle Statistics Visibility */}
       <div style={{ marginTop: '20px' }}>
         <label>Show Statistics</label>
-        <Switch checked={statVisibility} onChange={(e) => setStatVisibility(e.target.checked)} />
+        <Switch
+          checked={statVisibility}
+          onChange={(e) => setStatVisibility(e.target.checked)}
+        />
       </div>
 
       {statVisibility && (
         <div style={{ marginTop: '20px' }}>
           <h4>Statistics</h4>
           <p>
-            Min: {statistics.min} <br />
-            Max: {statistics.max} <br />
-            Total: {statistics.total} <br />
-            Count: {statistics.count}
+            Battles: {statistics.battles} <br />
+            Total Fatalities: {statistics.totalFatalities} <br />
+            Average Fatalities per Battle: {statistics.avgFatalities} <br />
+            Max Fatalities in a Single Battle: {statistics.maxFatalities}
           </p>
           <p>
-            There were a total of {statistics.total} battles from {dateRange.startDate} to {dateRange.endDate}.
+            Date Range: {statistics.dateRange.startDate} -{' '}
+            {statistics.dateRange.endDate}
           </p>
         </div>
       )}
