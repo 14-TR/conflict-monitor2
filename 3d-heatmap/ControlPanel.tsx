@@ -15,14 +15,12 @@ interface ControlPanelProps {
   setBrushingRadius: (value: number) => void;
   showHexControls: boolean;
   setShowHexControls: (value: boolean) => void;
-  statVisibility: boolean;
-  setStatVisibility: (value: boolean) => void;
-  statistics: { 
-    battles: number; 
-    totalFatalities: number; 
-    avgFatalities: string; 
-    maxFatalities: number; 
-    dateRange: { startDate: string; endDate: string } 
+  statistics: {
+    battles: number;
+    totalFatalities: number;
+    avgFatalities: string;
+    maxFatalities: number;
+    dateRange?: { startDate: string; endDate: string }; // Make dateRange optional
   };
 }
 
@@ -39,10 +37,11 @@ export default function ControlPanel({
   setBrushingRadius,
   showHexControls,
   setShowHexControls,
-  statVisibility,
-  setStatVisibility,
   statistics,
 }: ControlPanelProps) {
+  // Safely access the dateRange values with fallback
+  const { startDate = 'N/A', endDate = 'N/A' } = statistics.dateRange || {};
+
   return (
     <div
       style={{
@@ -123,30 +122,25 @@ export default function ControlPanel({
         )}
       </div>
 
-      {/* Toggle Statistics Visibility */}
+      {/* Statistics Section - Always Displayed */}
       <div style={{ marginTop: '20px' }}>
-        <label>Show Statistics</label>
-        <Switch
-          checked={statVisibility}
-          onChange={(e) => setStatVisibility(e.target.checked)}
-        />
+        <h4>Statistics</h4>
+        {statistics.battles === 0 ? (
+          <p>Please make a selection.</p>
+        ) : (
+          <>
+            <p>
+              Battles: {statistics.battles} <br />
+              Total Fatalities: {statistics.totalFatalities} <br />
+              Average Fatalities per Battle: {statistics.avgFatalities} <br />
+              Max Fatalities in a Single Battle: {statistics.maxFatalities}
+            </p>
+            <p>
+              Date Range: {startDate} - {endDate}
+            </p>
+          </>
+        )}
       </div>
-
-      {statVisibility && (
-        <div style={{ marginTop: '20px' }}>
-          <h4>Statistics</h4>
-          <p>
-            Battles: {statistics.battles} <br />
-            Total Fatalities: {statistics.totalFatalities} <br />
-            Average Fatalities per Battle: {statistics.avgFatalities} <br />
-            Max Fatalities in a Single Battle: {statistics.maxFatalities}
-          </p>
-          <p>
-            Date Range: {statistics.dateRange.startDate} -{' '}
-            {statistics.dateRange.endDate}
-          </p>
-        </div>
-      )}
     </div>
   );
 }
