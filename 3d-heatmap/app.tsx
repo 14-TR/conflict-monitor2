@@ -3,10 +3,15 @@ import { createRoot } from 'react-dom/client';
 import DeckGL from '@deck.gl/react';
 import { Map } from 'react-map-gl/maplibre';
 import { INITIAL_VIEW_STATE } from './config/mapConfig';
-import { fetchData } from './utils/dataFetcher'; // Import fetchData function
-import { createLayers } from './utils/layerCreator';
+import { CSVLoader } from '@loaders.gl/csv';
+import { load } from '@loaders.gl/core';  
 import ControlPanel from './components/ControlPanel';
+import { createLayers } from './utils/layerCreator'; 
 import { calculateStatistics } from './utils/calculateStatistics';
+import StatisticsArea from './components/StatisticsArea';  // Import the new component
+
+const BATTLES_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
+const EXPLOSIONS_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_explosions.csv';
 
 export default function App() {
   const [battlesData, setBattlesData] = useState([]);
@@ -24,13 +29,32 @@ export default function App() {
   const [tooltip, setTooltip] = useState(null);
   const deckRef = useRef(null);
 
-  // Fetch battles and explosions data when component loads
-  useEffect(() => {
-    fetchData('BATTLES', setBattlesData);
-    fetchData('EXPLOSIONS', setExplosionsData);
-  }, []); // Empty array ensures this runs only once when the component mounts
+  // Fetching the data using the same logic that worked before
+  const fetchData = useCallback(async (url, setData) => {
+    try {
+      const result = await load(url, CSVLoader);
+      const parsedData = result?.data || [];
+      setData(
+        parsedData.map((row) => ({
+          id: row.event_id_cnty,
+          longitude: parseFloat(row.longitude),
+          latitude: parseFloat(row.latitude),
+          event_date: new Date(row.event_date),
+          fatalities: parseInt(row.fatalities, 10) || 0,
+        }))
+      );
+    } catch (error) {
+      console.error(`Error loading data from ${url}:`, error);
+    }
+  }, []);
 
-  // Calculate statistics when data changes
+  // Fetch the battles and explosions data on component mount
+  useEffect(() => {
+    fetchData(BATTLES_DATA_URL, setBattlesData);
+    fetchData(EXPLOSIONS_DATA_URL, setExplosionsData);
+  }, [fetchData]);
+
+  // Recalculate statistics when data changes
   useEffect(() => {
     if (battlesData.length) {
       const newBattlesStatistics = calculateStatistics(battlesData);
@@ -41,11 +65,35 @@ export default function App() {
       const newExplosionsStatistics = calculateStatistics(explosionsData);
       setExplosionsStatistics(newExplosionsStatistics);
     }
-  }, [battlesData, explosionsData]);  // This ensures that whenever battlesData or explosionsData changes, the statistics are recalculated.
+  }, [battlesData, explosionsData]);
 
   const handleInteraction = useCallback(async (x, y) => {
-    // Interaction logic...
-  }, []);
+    if (deckRef.current) {
+      const results = await deckRef.current.pickMultipleObjects({
+        x,
+        y,
+        radius: brushingEnabled ? brushingRadius : radius,
+        layerIds: ['battles', 'explosions'],
+      });
+
+      let battlesPoints = [];
+      let explosionsPoints = [];
+
+      results.forEach((result) => {
+        if (result.object?.points) {
+          const points = result.object.points.map((p) => p.source);
+          if (result.layer.id === 'battles') {
+            battlesPoints.push(...points);
+          } else if (result.layer.id === 'explosions') {
+            explosionsPoints.push(...points);
+          }
+        }
+      });
+
+      setBattlesStatistics(calculateStatistics(battlesPoints));
+      setExplosionsStatistics(calculateStatistics(explosionsPoints));
+    }
+  }, [brushingEnabled, brushingRadius, radius]);
 
   const layers = useMemo(() => {
     return createLayers({
@@ -61,7 +109,17 @@ export default function App() {
       handleInteraction,
       setTooltip,
     });
-  }, [battlesData, explosionsData, radius, upperPercentile, coverage, brushingEnabled, brushingRadius, showBattlesLayer, showExplosionsLayer]);
+  }, [
+    battlesData,
+    explosionsData,
+    radius,
+    upperPercentile,
+    coverage,
+    brushingEnabled,
+    brushingRadius,
+    showBattlesLayer,
+    showExplosionsLayer,
+  ]);
 
   return (
     <div>
@@ -70,18 +128,35 @@ export default function App() {
       </DeckGL>
 
       {tooltip && tooltip.object && (
-        <div style={{ position: 'absolute', left: tooltip.x, top: tooltip.y, backgroundColor: 'rgba(0, 0, 0, 0.7)', color: '#fff', padding: '5px', borderRadius: '3px', pointerEvents: 'none' }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: tooltip.x,
+            top: tooltip.y,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: '#fff',
+            padding: '5px',
+            borderRadius: '3px',
+            pointerEvents: 'none',
+          }}
+        >
           <div>Events: {tooltip.object.points.length}</div>
           <div>Layer: {tooltip.layer.id}</div>
         </div>
       )}
 
-      <ControlPanel 
-        radius={radius} 
-        setRadius={setRadius} 
-        upperPercentile={upperPercentile} 
+      {/* Add StatisticsArea component to display stats in top-right corner */}
+      <StatisticsArea
+        battlesStatistics={battlesStatistics}
+        explosionsStatistics={explosionsStatistics}
+      />
+
+      <ControlPanel
+        radius={radius}
+        setRadius={setRadius}
+        upperPercentile={upperPercentile}
         setUpperPercentile={setUpperPercentile}
-        coverage={coverage} 
+        coverage={coverage}
         setCoverage={setCoverage}
         brushingEnabled={brushingEnabled}
         setBrushingEnabled={setBrushingEnabled}

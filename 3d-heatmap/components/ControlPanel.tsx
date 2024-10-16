@@ -20,8 +20,8 @@ const ControlPanel = ({
   setShowBattlesLayer,
   showExplosionsLayer,
   setShowExplosionsLayer,
-  battlesStatistics,
-  explosionsStatistics,
+  // battlesStatistics,
+  // explosionsStatistics,
 }) => {
   return (
     <div
@@ -107,9 +107,7 @@ const ControlPanel = ({
         />
       )}
 
-      {/* Battles and Explosions Statistics */}
-      <StatisticsDisplay title="Battles Statistics" statistics={battlesStatistics} />
-      <StatisticsDisplay title="Explosions Statistics" statistics={explosionsStatistics} />
+      
     </div>
   );
 };
