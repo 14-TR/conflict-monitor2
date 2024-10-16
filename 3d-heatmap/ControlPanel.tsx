@@ -2,6 +2,14 @@ import React from 'react';
 import Slider from '@mui/material/Slider';
 import Switch from '@mui/material/Switch';
 
+interface Statistics {
+  events: number;
+  totalFatalities: number;
+  avgFatalities: string;
+  maxFatalities: number;
+  dateRange?: { startDate: string; endDate: string };
+}
+
 interface ControlPanelProps {
   radius: number;
   setRadius: (value: number) => void;
@@ -15,16 +23,15 @@ interface ControlPanelProps {
   setBrushingRadius: (value: number) => void;
   showHexControls: boolean;
   setShowHexControls: (value: boolean) => void;
-  statistics: {
-    battles: number;
-    totalFatalities: number;
-    avgFatalities: string;
-    maxFatalities: number;
-    dateRange?: { startDate: string; endDate: string }; // Make dateRange optional
-  };
+  showBattlesLayer: boolean;
+  setShowBattlesLayer: (value: boolean) => void;
+  showExplosionsLayer: boolean;
+  setShowExplosionsLayer: (value: boolean) => void;
+  battlesStatistics: Statistics;
+  explosionsStatistics: Statistics;
 }
 
-export default function ControlPanel({
+const ControlPanel: React.FC<ControlPanelProps> = ({
   radius,
   setRadius,
   upperPercentile,
@@ -37,10 +44,33 @@ export default function ControlPanel({
   setBrushingRadius,
   showHexControls,
   setShowHexControls,
-  statistics,
-}: ControlPanelProps) {
-  // Safely access the dateRange values with fallback
-  const { startDate = 'N/A', endDate = 'N/A' } = statistics.dateRange || {};
+  showBattlesLayer,
+  setShowBattlesLayer,
+  showExplosionsLayer,
+  setShowExplosionsLayer,
+  battlesStatistics,
+  explosionsStatistics,
+}) => {
+  const renderStatistics = (title: string, stats: Statistics) => {
+    const { startDate = 'N/A', endDate = 'N/A' } = stats.dateRange || {};
+
+    return (
+      <div style={{ marginTop: '20px' }}>
+        <h4>{title}</h4>
+        {stats.events === 0 ? (
+          <p>No data available.</p>
+        ) : (
+          <p>
+            Events: {stats.events} <br />
+            Total Fatalities: {stats.totalFatalities} <br />
+            Avg Fatalities per Event: {stats.avgFatalities} <br />
+            Max Fatalities in a Single Event: {stats.maxFatalities} <br />
+            Date Range: {startDate} - {endDate}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -54,7 +84,7 @@ export default function ControlPanel({
         maxWidth: '300px',
       }}
     >
-      {/* Toggle Hex Control Visibility */}
+      {/* Toggle Hex Controls */}
       <div style={{ marginBottom: '10px' }}>
         <label>Show Hex Controls</label>
         <Switch
@@ -65,6 +95,24 @@ export default function ControlPanel({
 
       {showHexControls && (
         <>
+          {/* Layer Visibility Switches */}
+          <div style={{ marginTop: '10px' }}>
+            <label>Show Battles Layer</label>
+            <Switch
+              checked={showBattlesLayer}
+              onChange={(e) => setShowBattlesLayer(e.target.checked)}
+            />
+          </div>
+
+          <div style={{ marginTop: '10px' }}>
+            <label>Show Explosions Layer</label>
+            <Switch
+              checked={showExplosionsLayer}
+              onChange={(e) => setShowExplosionsLayer(e.target.checked)}
+            />
+          </div>
+
+          {/* Radius Slider */}
           <div style={{ marginTop: '20px' }}>
             <label>Radius: {radius} meters</label>
             <Slider
@@ -73,8 +121,11 @@ export default function ControlPanel({
               max={20000}
               step={100}
               onChange={(e, value) => setRadius(value as number)}
+              valueLabelDisplay="auto"
             />
           </div>
+
+          {/* Percentile Range Slider */}
           <div style={{ marginTop: '20px' }}>
             <label>
               Percentile Range: {upperPercentile[0]}% - {upperPercentile[1]}%
@@ -88,6 +139,8 @@ export default function ControlPanel({
               valueLabelDisplay="auto"
             />
           </div>
+
+          {/* Coverage Slider */}
           <div style={{ marginTop: '20px' }}>
             <label>Coverage: {coverage}</label>
             <Slider
@@ -101,13 +154,14 @@ export default function ControlPanel({
         </>
       )}
 
-      {/* Brushing Control */}
+      {/* Brushing Controls */}
       <div style={{ marginTop: '20px' }}>
         <label>Enable Brushing</label>
         <Switch
           checked={brushingEnabled}
           onChange={(e) => setBrushingEnabled(e.target.checked)}
         />
+
         {brushingEnabled && (
           <div style={{ marginTop: '10px' }}>
             <label>Brushing Radius: {brushingRadius} meters</label>
@@ -117,31 +171,17 @@ export default function ControlPanel({
               max={100000}
               step={1000}
               onChange={(e, value) => setBrushingRadius(value as number)}
-              valueLabelDisplay='auto'
+              valueLabelDisplay="auto"
             />
           </div>
         )}
       </div>
 
-      {/* Statistics Section - Always Displayed */}
-      <div style={{ marginTop: '20px' }}>
-        <h4>Statistics</h4>
-        {statistics.battles === 0 ? (
-          <p>Please make a selection.</p>
-        ) : (
-          <>
-            <p>
-              Battles: {statistics.battles} <br />
-              Total Fatalities: {statistics.totalFatalities} <br />
-              Average Fatalities per Battle: {statistics.avgFatalities} <br />
-              Max Fatalities in a Single Battle: {statistics.maxFatalities}
-            </p>
-            <p>
-              Date Range: {startDate} - {endDate}
-            </p>
-          </>
-        )}
-      </div>
+      {/* Battles and Explosions Statistics */}
+      {renderStatistics('Battles Statistics', battlesStatistics)}
+      {renderStatistics('Explosions Statistics', explosionsStatistics)}
     </div>
   );
-}
+};
+
+export default ControlPanel;

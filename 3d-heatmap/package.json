@@ -21,6 +21,7 @@
     "dotenv": "^16.4.5",
     "duckdb": "^1.1.1",
     "json2csv": "^6.0.0-alpha.2",
+    "lodash": "^4.17.21",
     "maplibre-gl": "^3.0.0",
     "node-fetch": "^3.3.2",
     "react": "^18.0.0",
@@ -29,6 +30,7 @@
     "simple-statistics": "^7.8.5"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.10",
     "typescript": "^4.6.0",
     "vite": "^4.0.0"
   }
