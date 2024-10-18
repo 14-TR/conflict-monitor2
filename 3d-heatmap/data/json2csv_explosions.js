@@ -1,10 +1,8 @@
-// json_to_csv.js
-
 const fs = require('fs');
 const { Parser } = require('json2csv');
 
 /**
- * Converts a JSON file to a CSV file.
+ * Converts a JSON file to a CSV file, keeping only the specified fields.
  *
  * @param {string} inputFilePath - The path to the input JSON file.
  * @param {string} outputFilePath - The path to the output CSV file.
@@ -22,10 +20,19 @@ function convertJsonToCsv(inputFilePath, outputFilePath) {
       throw new Error('JSON data is empty.');
     }
 
-    // Extract fields (column headers) from the first object
-    const fields = Object.keys(dataArray[0]);
+    // Specify the fields you want to keep in the CSV
+    const fields = [
+      'event_id_cnty',
+      'event_date',
+      'event_type',
+      'sub_event_type',
+      'latitude',
+      'longitude',
+      'geo_precision',
+      'fatalities'
+    ];
 
-    // Initialize the JSON to CSV parser
+    // Initialize the JSON to CSV parser with the specified fields
     const json2csvParser = new Parser({ fields });
 
     // Convert the JSON array to CSV
