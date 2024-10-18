@@ -9,6 +9,8 @@ import ControlPanel from './components/ControlPanel';
 import { createLayers } from './utils/layerCreator'; 
 import { calculateStatistics } from './utils/calculateStatistics';
 import StatisticsArea from './components/StatisticsArea';  // Import the new component
+import StackedBarChart from './components/StackedBarChart'; // Import the new StackedBarChart component
+import { aggregateDataByDate } from './utils/aggregateDataByDate';  // Import the data aggregation helper
 
 const BATTLES_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
 const EXPLOSIONS_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_explosions.csv';
@@ -27,9 +29,10 @@ export default function App() {
   const [battlesStatistics, setBattlesStatistics] = useState({});
   const [explosionsStatistics, setExplosionsStatistics] = useState({});
   const [tooltip, setTooltip] = useState(null);
+  const [aggregatedData, setAggregatedData] = useState([]);  // New state for aggregated chart data
   const deckRef = useRef(null);
 
-  // Fetching the data using the same logic that worked before
+  // Fetching the data using the same logic that worked before, with proper parsing for event_date
   const fetchData = useCallback(async (url, setData) => {
     try {
       const result = await load(url, CSVLoader);
@@ -54,16 +57,18 @@ export default function App() {
     fetchData(EXPLOSIONS_DATA_URL, setExplosionsData);
   }, [fetchData]);
 
-  // Recalculate statistics when data changes
+  // Recalculate statistics and aggregate data for the chart when data changes
   useEffect(() => {
-    if (battlesData.length) {
+    if (battlesData.length && explosionsData.length) {
       const newBattlesStatistics = calculateStatistics(battlesData);
       setBattlesStatistics(newBattlesStatistics);
-    }
 
-    if (explosionsData.length) {
       const newExplosionsStatistics = calculateStatistics(explosionsData);
       setExplosionsStatistics(newExplosionsStatistics);
+
+      // Aggregate data by date for the chart
+      const aggregated = aggregateDataByDate(battlesData, explosionsData);
+      setAggregatedData(aggregated);  // Set the aggregated data for the chart
     }
   }, [battlesData, explosionsData]);
 
@@ -150,6 +155,11 @@ export default function App() {
         battlesStatistics={battlesStatistics}
         explosionsStatistics={explosionsStatistics}
       />
+
+      {/* Add the StackedBarChart in the bottom-right corner */}
+      <div style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'white', padding: '10px' }}>
+        <StackedBarChart data={aggregatedData} />  {/* Pass the aggregated data */}
+      </div>
 
       <ControlPanel
         radius={radius}
