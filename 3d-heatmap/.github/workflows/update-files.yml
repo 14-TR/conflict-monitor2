@@ -1,0 +1,49 @@
+name: Fetch and Convert ACLED Data
+
+# Triggers the workflow on a schedule (daily at midnight) or allows manual runs
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:      # Allows manual trigger via GitHub UI
+
+jobs:
+  update_acled_data:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the repository to access files
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Step 2: Set up Node.js environment
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16' # Use Node.js version 16 (or update as needed)
+
+    # Step 3: Install dependencies
+    - name: Install dependencies
+      run: |
+        npm install dotenv node-fetch@2 json2csv
+
+    # Step 4: Run the fetch_acled_data_battles.js script
+    - name: Fetch ACLED Data
+      run: node 3d-heatmap/data/fetch_acled_data_battles.js
+
+    # Step 5: Run the json2csv_battles.js script to convert JSON to CSV
+    - name: Convert JSON to CSV
+      run: node 3d-heatmap/data/json2csv_battles.js
+
+    # Step 6: Configure Git to allow pushing changes
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "your-email@example.com"
+
+    # Step 7: Add and commit any changes to the repository
+    - name: Commit and push changes
+      run: |
+        git add .
+        git commit -m "Automated data update: ACLED battles data"
+        git push
+      continue-on-error: true  # Avoid failure if there are no changes to commit
