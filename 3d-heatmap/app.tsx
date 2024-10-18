@@ -8,9 +8,9 @@ import { load } from '@loaders.gl/core';
 import ControlPanel from './components/ControlPanel';
 import { createLayers } from './utils/layerCreator'; 
 import { calculateStatistics } from './utils/calculateStatistics';
-import StatisticsArea from './components/StatisticsArea';  // Import the new component
-import StackedBarChart from './components/StackedBarChart'; // Import the new StackedBarChart component
-import { aggregateDataByDate } from './utils/aggregateDataByDate';  // Import the data aggregation helper
+import StatisticsArea from './components/StatisticsArea';
+import StackedBarChart from './components/StackedBarChart';
+import { aggregateDataByDate } from './utils/aggregateDataByDate';  // Import the aggregation function
 
 const BATTLES_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_battles.csv';
 const EXPLOSIONS_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-monitor2/refs/heads/main/acled_data_explosions.csv';
@@ -18,6 +18,7 @@ const EXPLOSIONS_DATA_URL = 'https://raw.githubusercontent.com/14-TR/conflict-mo
 export default function App() {
   const [battlesData, setBattlesData] = useState([]);
   const [explosionsData, setExplosionsData] = useState([]);
+  const [selectedData, setSelectedData] = useState([]);  // State for selected map data
   const [radius, setRadius] = useState(1000);
   const [upperPercentile, setUpperPercentile] = useState([0, 100]);
   const [coverage, setCoverage] = useState(1);
@@ -32,7 +33,7 @@ export default function App() {
   const [aggregatedData, setAggregatedData] = useState([]);  // New state for aggregated chart data
   const deckRef = useRef(null);
 
-  // Fetching the data using the same logic that worked before, with proper parsing for event_date
+  // Fetch the data using the same logic that worked before, with proper parsing for event_date
   const fetchData = useCallback(async (url, setData) => {
     try {
       const result = await load(url, CSVLoader);
@@ -57,21 +58,7 @@ export default function App() {
     fetchData(EXPLOSIONS_DATA_URL, setExplosionsData);
   }, [fetchData]);
 
-  // Recalculate statistics and aggregate data for the chart when data changes
-  useEffect(() => {
-    if (battlesData.length && explosionsData.length) {
-      const newBattlesStatistics = calculateStatistics(battlesData);
-      setBattlesStatistics(newBattlesStatistics);
-
-      const newExplosionsStatistics = calculateStatistics(explosionsData);
-      setExplosionsStatistics(newExplosionsStatistics);
-
-      // Aggregate data by date for the chart
-      const aggregated = aggregateDataByDate(battlesData, explosionsData);
-      setAggregatedData(aggregated);  // Set the aggregated data for the chart
-    }
-  }, [battlesData, explosionsData]);
-
+  // Handle map interactions and filter data based on selections
   const handleInteraction = useCallback(async (x, y) => {
     if (deckRef.current) {
       const results = await deckRef.current.pickMultipleObjects({
@@ -81,22 +68,30 @@ export default function App() {
         layerIds: ['battles', 'explosions'],
       });
 
-      let battlesPoints = [];
-      let explosionsPoints = [];
+      let selectedBattles = [];
+      let selectedExplosions = [];
 
       results.forEach((result) => {
         if (result.object?.points) {
           const points = result.object.points.map((p) => p.source);
           if (result.layer.id === 'battles') {
-            battlesPoints.push(...points);
+            selectedBattles.push(...points);
           } else if (result.layer.id === 'explosions') {
-            explosionsPoints.push(...points);
+            selectedExplosions.push(...points);
           }
         }
       });
 
-      setBattlesStatistics(calculateStatistics(battlesPoints));
-      setExplosionsStatistics(calculateStatistics(explosionsPoints));
+      const selectedData = [...selectedBattles, ...selectedExplosions];  // Combine selected battles and explosions
+      setSelectedData(selectedData);
+
+      // Update statistics based on selected data
+      setBattlesStatistics(calculateStatistics(selectedBattles));
+      setExplosionsStatistics(calculateStatistics(selectedExplosions));
+
+      // Aggregate the selected data for the chart
+      const aggregated = aggregateDataByDate(selectedBattles, selectedExplosions);
+      setAggregatedData(aggregated);  // Update the chart with selected data
     }
   }, [brushingEnabled, brushingRadius, radius]);
 
